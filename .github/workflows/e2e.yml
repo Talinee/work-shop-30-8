@@ -1,0 +1,48 @@
+name: E2E Testing
+on:
+  push:
+    branches:
+      - master
+  repository_dispatch:
+    types: trigger_internal
+  schedule:
+    - cron: '0 0 * * *'
+env:
+  CYPRESS_CI: true
+jobs:
+  e2e:
+    name: E2E testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.6.x
+      - name: Setup
+        if: success() || failure()
+        id: setup
+        run: |
+          TODAY_DATE=`date +"%d.%m.%y"`
+          echo "::set-output name=DATE::$TODAY_DATE"
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          echo "::set-output name=BRANCH_NAME::$BRANCH_NAME"
+          echo "::set-output name=PROJECT::develop/$TODAY_DATE"
+      - name: Install
+        run: |
+          npm install
+      - name: E2E Testing
+        run: npm run cypress:runTest
+      - name: Send notification to slack
+        uses: 8398a7/action-slack@v2
+        if: success() || failure()
+        with:
+          status: ${{ job.status }}
+          author_name:
+            (Develop)Tester report
+            ${{steps.setup.outputs.BRANCH_NAME}}-${{steps.setup.outputs.DATE}}
+          text:
+            'Can check report at:
+            https://20scoopscnx.com/'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
